@@ -38,6 +38,24 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let text = key.text_with_all_modifiers().unwrap_or_default();
 
+        // On macOS, CapsLock is used as an IME toggle for CJK input methods.
+        // When CapsLock is on, text_with_all_modifiers() returns uppercase but
+        // the user expects lowercase. Correct single ASCII letters without Shift.
+        #[cfg(target_os = "macos")]
+        let text_buf;
+        #[cfg(target_os = "macos")]
+        let text = if self.ctx.config().caps_lock_as_ime_toggle() {
+            let b = text.as_bytes();
+            if b.len() == 1 && b[0].is_ascii_uppercase() && !mods.shift_key() {
+                text_buf = String::from((b[0] as char).to_ascii_lowercase());
+                text_buf.as_str()
+            } else {
+                text
+            }
+        } else {
+            text
+        };
+
         // All key bindings are disabled while a hint is being selected.
         if self.ctx.display().hint_state.active() {
             for character in text.chars() {
@@ -81,7 +99,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let is_modifier_key = Self::is_modifier_key(&key);
 
         let bytes = if build_key_sequence {
-            build_sequence(key, mods, mode)
+            build_sequence(key, mods, mode, self.ctx.config().caps_lock_as_ime_toggle())
         } else {
             let mut bytes = Vec::with_capacity(text.len() + 1);
             if mods.alt_key() {
@@ -260,6 +278,22 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Mask `Alt` modifier from input when we won't send esc.
         let text = key.text_with_all_modifiers().unwrap_or_default();
+
+        #[cfg(target_os = "macos")]
+        let text_buf;
+        #[cfg(target_os = "macos")]
+        let text = if self.ctx.config().caps_lock_as_ime_toggle() {
+            let b = text.as_bytes();
+            if b.len() == 1 && b[0].is_ascii_uppercase() && !mods.shift_key() {
+                text_buf = String::from((b[0] as char).to_ascii_lowercase());
+                text_buf.as_str()
+            } else {
+                text
+            }
+        } else {
+            text
+        };
+
         let mods = if self.alt_send_esc(&key, text) { mods } else { mods & !ModifiersState::ALT };
 
         let bytes = match key.logical_key.as_ref() {
@@ -270,7 +304,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             {
                 return;
             },
-            _ => build_sequence(key, mods, mode),
+            _ => build_sequence(key, mods, mode, self.ctx.config().caps_lock_as_ime_toggle()),
         };
 
         self.ctx.write_to_pty(bytes);
@@ -292,7 +326,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 ///
 /// The key sequences for `APP_KEYPAD` and alike are handled inside the bindings.
 #[inline(never)]
-fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8> {
+fn build_sequence(
+    key: KeyEvent,
+    mods: ModifiersState,
+    mode: TermMode,
+    #[allow(unused_variables)] caps_lock_as_ime_toggle: bool,
+) -> Vec<u8> {
     let mut modifiers = mods.into();
 
     let kitty_seq = mode.intersects(
@@ -315,6 +354,26 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
             && !text.is_empty()
             && !is_control_character(text)
     });
+
+    #[cfg(target_os = "macos")]
+    let assoc_buf;
+    #[cfg(target_os = "macos")]
+    let associated_text = if caps_lock_as_ime_toggle {
+        match associated_text {
+            Some(t) => {
+                let b = t.as_bytes();
+                if b.len() == 1 && b[0].is_ascii_uppercase() && !mods.shift_key() {
+                    assoc_buf = String::from((b[0] as char).to_ascii_lowercase());
+                    Some(assoc_buf.as_str())
+                } else {
+                    Some(t)
+                }
+            },
+            None => None,
+        }
+    } else {
+        associated_text
+    };
 
     let sequence_base = context
         .try_build_numpad(&key)

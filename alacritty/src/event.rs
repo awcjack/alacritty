@@ -2017,6 +2017,26 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
+                            // On macOS, CapsLock is commonly used as an IME toggle
+                            // (e.g. to switch between CJK and English). When CapsLock
+                            // is on, macOS uppercases the committed text even though
+                            // the user expects lowercase. Fix this by lowercasing
+                            // single ASCII uppercase letters when Shift is not pressed.
+                            #[cfg(target_os = "macos")]
+                            let text = if self.ctx.config.caps_lock_as_ime_toggle() {
+                                let bytes = text.as_bytes();
+                                if bytes.len() == 1
+                                    && bytes[0].is_ascii_uppercase()
+                                    && !self.ctx.modifiers().state().shift_key()
+                                {
+                                    String::from((bytes[0] as char).to_ascii_lowercase())
+                                } else {
+                                    text
+                                }
+                            } else {
+                                text
+                            };
+
                             *self.ctx.dirty = true;
                             // Don't use bracketed paste for single char input.
                             self.ctx.paste(&text, text.chars().count() > 1);

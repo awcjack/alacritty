@@ -153,6 +153,11 @@ impl UiConfig {
     }
 
     #[inline]
+    pub fn caps_lock_as_ime_toggle(&self) -> bool {
+        self.keyboard.caps_lock_as_ime_toggle
+    }
+
+    #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
         &self.mouse.bindings.0
     }
@@ -175,6 +180,13 @@ struct Keyboard {
     /// Keybindings.
     #[serde(skip_serializing)]
     bindings: KeyBindings,
+
+    /// Treat CapsLock as an IME toggle instead of a modifier.
+    ///
+    /// When enabled, single ASCII letters typed with CapsLock on (but Shift not pressed) are
+    /// lowercased. Useful for CJK input method users who use CapsLock to switch between
+    /// native and English input.
+    caps_lock_as_ime_toggle: bool,
 }
 
 #[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
