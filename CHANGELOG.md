@@ -10,9 +10,14 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.18.0-dev
 
+### Packaging
+
+- Fixed `alacritty-escapes(7)` manpage missing from macOS install
+
 ### Fixed
 
 - Spurious "Failed to set new owner of XCB selection" warnings on X11
+- Lacking permissions to launch software sending Apple events
 
 ## 0.17.0
 
