@@ -328,6 +328,17 @@ impl<T: EventListener> Execute<T> for Action {
                 let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
                 ctx.paste(&text, true);
             },
+            Action::PasteImageOrText => {
+                if ctx.clipboard_mut().has_image() {
+                    // Image on the clipboard: forward Ctrl+V (0x16) so the running
+                    // application fetches it itself (e.g. Claude Code via the
+                    // clip-bridge shims). No terminal image rendering is involved.
+                    ctx.write_to_pty(vec![0x16u8]);
+                } else {
+                    let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
+                    ctx.paste(&text, true);
+                }
+            },
             Action::PasteSelection => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Selection);
                 ctx.paste(&text, true);

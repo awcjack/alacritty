@@ -67,6 +67,22 @@ impl Clipboard {
         });
     }
 
+    /// Whether the system clipboard currently holds an image.
+    ///
+    /// Used by the `PasteImageOrText` action to decide between forwarding a
+    /// Ctrl+V (so a running application fetches the image itself) and a normal
+    /// text paste. `copypasta` is text-only, so this uses `arboard` on macOS;
+    /// other platforms report `false` (they paste text / use Ctrl+V directly).
+    #[cfg(target_os = "macos")]
+    pub fn has_image(&mut self) -> bool {
+        arboard::Clipboard::new().and_then(|mut cb| cb.get_image().map(|_| ())).is_ok()
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub fn has_image(&mut self) -> bool {
+        false
+    }
+
     pub fn load(&mut self, ty: ClipboardType) -> String {
         let clipboard = match (ty, &mut self.selection) {
             (ClipboardType::Selection, Some(provider)) => provider,

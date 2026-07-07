@@ -118,6 +118,11 @@ pub enum Action {
     /// Paste contents of system clipboard.
     Paste,
 
+    /// Paste the system clipboard, but if it holds an image, forward Ctrl+V
+    /// (0x16) instead so a running application (e.g. Claude Code) fetches the
+    /// image itself. Lets one key (e.g. Cmd+V) do image-paste and text-paste.
+    PasteImageOrText,
+
     /// Store current selection into clipboard.
     Copy,
 
