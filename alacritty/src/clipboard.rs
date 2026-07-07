@@ -71,11 +71,20 @@ impl Clipboard {
     ///
     /// Used by the `PasteImageOrText` action to decide between forwarding a
     /// Ctrl+V (so a running application fetches the image itself) and a normal
-    /// text paste. `copypasta` is text-only, so this uses `arboard` on macOS;
-    /// other platforms report `false` (they paste text / use Ctrl+V directly).
+    /// text paste. `copypasta` is text-only, so on macOS this asks the system
+    /// via `osascript` (image flavors report as PNGf/TIFF/GIFf), the same check
+    /// the clip-bridge daemon uses. Other platforms report `false` (they paste
+    /// text / use Ctrl+V directly).
     #[cfg(target_os = "macos")]
     pub fn has_image(&mut self) -> bool {
-        arboard::Clipboard::new().and_then(|mut cb| cb.get_image().map(|_| ())).is_ok()
+        std::process::Command::new("osascript")
+            .args(["-e", "clipboard info"])
+            .output()
+            .map(|out| {
+                let info = String::from_utf8_lossy(&out.stdout);
+                info.contains("PNGf") || info.contains("TIFF") || info.contains("GIFf")
+            })
+            .unwrap_or(false)
     }
 
     #[cfg(not(target_os = "macos"))]
